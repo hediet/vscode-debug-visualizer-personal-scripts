@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@hediet/debug-visualizer-data-extraction": "^0.14.0"
+  },
+  "devDependencies": {
+    "typescript": "*"
+  },
+  "scripts": {
+    "dev": "tsc --watch"
+  }
+}
