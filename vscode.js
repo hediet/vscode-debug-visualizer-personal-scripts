@@ -6,6 +6,65 @@
 module.exports = (register, helpers) => {
 
 	register({
+		id: 'MyersDiffAlgorithm',
+		dataCtor: 'MyersDiffAlgorithm',
+		getExtractions(data, collector, context) {
+			function tryEval(
+				obj
+			) {
+				const result = {};
+				if (Array.isArray(obj)) {
+					for (const val of obj) {
+						try {
+							result[val] = context.evalFn(val);
+						} catch (e) {}
+					}
+				} else {
+					for (const [key, val] of Object.entries(obj)) {
+						try {
+							result[key] = context.evalFn(val);
+						} catch (e) {}
+					}
+				}
+				return result;
+			}
+
+			
+			function pathToArr(arr, path) {
+				if (!path) {
+					return arr;
+				}
+				arr.push({ x: path.x, y: path.y, length: path.length });
+				return pathToArr(arr, path.prev);
+			}
+
+			collector.addExtraction({
+				priority: 2000,
+				extractData() {
+					return {
+						kind: { MyersDiffAlgorithm: true },
+						textX: context.evalFn('seqX.text'),
+						textY: context.evalFn('seqY.text'),
+						Vpos: context.evalFn('[...V.positiveArr]'),
+						Vneg: context.evalFn('[...V.negativeArr]'),
+						pathsPos: context.evalFn('[...paths.positiveArr]').map(p => pathToArr([], p)),
+						pathsNeg: context.evalFn('[...paths.negativeArr]').map(p => pathToArr([], p)),
+						d: context.evalFn('d'),
+						...tryEval({
+							k: 'k',
+							x: 'x',
+							y: 'y',
+							step: 'step',
+							maxXofDLineTop: 'maxXofDLineTop',
+							maxXofDLineLeft: 'maxXofDLineLeft',
+						})
+					}
+				}
+			});
+		}
+	});
+
+	register({
 		id: 'dynamicProgrammingDiffing',
 		getExtractions(data, collector, context) {
 			if (typeof data !== 'object' || !data || data.constructor.name !== 'DynamicProgrammingDiffing') {
@@ -188,6 +247,7 @@ module.exports = (register, helpers) => {
 		}
 	});
 
+	
 	register({
 		id: "offsetRange",
 		dataCtor: "OffsetRange",
@@ -195,13 +255,35 @@ module.exports = (register, helpers) => {
 			//if (!context.filePath.contains('standardLinesDiffComputer')) { return; }
 
 			/** @type any */
-			const sd = helpers.findVar({ nameSimilarTo: context.expression, ctor: 'Slice' });
+			const sd = helpers.findVar({ nameSimilarTo: context.expression, ctor: 'LinesSliceCharSequence' });
 			if (!sd) { return; }
 
 			collector.addExtraction({
-				priority: 1000,
+				priority: 2000,
 				extractData() {
 					return context.extract([sd.text, [data.start, data.endExclusive]]);
+				}
+			});
+		}
+	});
+
+	register({
+		id: "offsetRanges",
+		//dataCtor: "Array",
+		getExtractions(/** @type Array */ data, collector, context) {
+			//if (!context.filePath.contains('standardLinesDiffComputer')) { return; }
+			if (!Array.isArray(data) || !data.every(d => typeof d === "object" && d && d.constructor.name === "OffsetRange")) {
+				return;
+			}
+
+			/** @type any */
+			const sd = helpers.findVar({ nameSimilarTo: context.expression, ctor: 'LinesSliceCharSequence' });
+			if (!sd) { return; }
+
+			collector.addExtraction({
+				priority: 2000,
+				extractData() {
+					return context.extract([sd.text, ...data.map(data => [data.start, data.endExclusive])]);
 				}
 			});
 		}
@@ -293,6 +375,7 @@ module.exports = (register, helpers) => {
 		},
 	});
 };
+
 
 /**
  * @return {value is { startColumn: number; startLineNumber: number; endColumn: number; endLineNumber: number; }}
